@@ -31,7 +31,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
 }));
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '8mb' }));
 
 // Rate limit simples (em memória — suficiente pra uso interno)
 const rateLimitMap = new Map();
@@ -64,7 +64,7 @@ app.use(express.static('public'));
 // === GERAR IMAGEM ===
 app.post('/api/generate', rateLimit, async (req, res) => {
   try {
-    const { prompt, model, aspect_ratio, output_quality, num_inference_steps } = req.body;
+    const { prompt, model, aspect_ratio, output_quality, num_inference_steps, image_prompt, image_prompt_strength } = req.body;
 
     if (!prompt || typeof prompt !== 'string' || prompt.length < 5) {
       return res.status(400).json({ error: 'Prompt inválido ou muito curto' });
@@ -96,10 +96,17 @@ app.post('/api/generate', rateLimit, async (req, res) => {
       // Ultra: NÃO aceita output_quality nem num_inference_steps
       input.safety_tolerance = 5;
       input.raw = req.body.raw !== undefined ? req.body.raw : false;
+      if (image_prompt) {
+        input.image_prompt = image_prompt;
+        input.image_prompt_strength = image_prompt_strength !== undefined ? image_prompt_strength : 0.35;
+      }
     } else if (targetModel.includes('flux-1.1-pro')) {
       input.output_quality = output_quality || 95;
       input.safety_tolerance = 5;
       input.prompt_upsampling = true;
+      if (image_prompt) {
+        input.image_prompt = image_prompt;
+      }
     }
 
     const replicateResp = await fetch(url, {
