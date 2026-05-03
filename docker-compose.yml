@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  rampa-proxy:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      # Configure essas duas variáveis no painel do Coolify:
+      - REPLICATE_API_TOKEN=${REPLICATE_API_TOKEN}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-*}
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
