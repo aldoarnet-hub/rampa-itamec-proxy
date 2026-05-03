@@ -73,26 +73,43 @@ app.post('/api/generate', rateLimit, async (req, res) => {
       return res.status(400).json({ error: 'Prompt muito longo (máx 2000 chars)' });
     }
 
-    const targetModel = model || 'black-forest-labs/flux-schnell';
+    const targetModel = model || 'black-forest-labs/flux-1.1-pro-ultra';
     const url = `https://api.replicate.com/v1/models/${targetModel}/predictions`;
+
+    // Monta input conforme o modelo escolhido (cada flux tem sua API)
+    const input = {
+      prompt,
+      aspect_ratio: aspect_ratio || '16:9',
+      output_format: 'jpg',
+    };
+
+    if (targetModel.includes('flux-schnell')) {
+      input.output_quality = output_quality || 95;
+      input.num_outputs = 1;
+      input.num_inference_steps = Math.min(num_inference_steps || 4, 4);
+    } else if (targetModel.includes('flux-dev')) {
+      input.output_quality = output_quality || 95;
+      input.num_outputs = 1;
+      input.num_inference_steps = num_inference_steps || 28;
+      input.guidance = 3.5;
+    } else if (targetModel.includes('flux-1.1-pro-ultra')) {
+      // Ultra: NÃO aceita output_quality nem num_inference_steps
+      input.safety_tolerance = 5;
+      input.raw = req.body.raw !== undefined ? req.body.raw : false;
+    } else if (targetModel.includes('flux-1.1-pro')) {
+      input.output_quality = output_quality || 95;
+      input.safety_tolerance = 5;
+      input.prompt_upsampling = true;
+    }
 
     const replicateResp = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${REPLICATE_TOKEN}`,
         'Content-Type': 'application/json',
-        'Prefer': 'wait=10',
+        'Prefer': 'wait=30',
       },
-      body: JSON.stringify({
-        input: {
-          prompt,
-          aspect_ratio: aspect_ratio || '16:9',
-          output_format: 'jpg',
-          output_quality: output_quality || 90,
-          num_outputs: 1,
-          num_inference_steps: num_inference_steps || 4,
-        },
-      }),
+      body: JSON.stringify({ input }),
     });
 
     if (!replicateResp.ok) {
